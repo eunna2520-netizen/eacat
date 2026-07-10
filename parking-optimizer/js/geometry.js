@@ -150,10 +150,59 @@ const Geo = (() => {
     return false;
   }
 
+  // poly와 축에 수직인 직선(fixedAxis='y'면 y=v인 가로선, 'x'면 x=v인 세로선)의 교차 구간을
+  // [lo,hi] 범위로 잘라 반환. 스캔라인(짝수-홀수 규칙) 방식이라 오목 다각형도 지원.
+  function crossIntervalsAt(poly, fixedAxis, v, lo, hi) {
+    const xs = [];
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const p1 = poly[j], p2 = poly[i];
+      const c1 = fixedAxis === "y" ? p1.y : p1.x;
+      const c2 = fixedAxis === "y" ? p2.y : p2.x;
+      if ((c1 <= v && c2 > v) || (c2 <= v && c1 > v)) {
+        const t = (v - c1) / (c2 - c1);
+        const o1 = fixedAxis === "y" ? p1.x : p1.y;
+        const o2 = fixedAxis === "y" ? p2.x : p2.y;
+        xs.push(o1 + t * (o2 - o1));
+      }
+    }
+    xs.sort((a, b) => a - b);
+    const out = [];
+    for (let i = 0; i + 1 < xs.length; i += 2) {
+      const s = Math.max(xs[i], lo), e = Math.min(xs[i + 1], hi);
+      if (e > s) out.push([s, e]);
+    }
+    return out;
+  }
+
+  function intersectIntervals(A, B) {
+    const out = [];
+    for (const [as, ae] of A) {
+      for (const [bs, be] of B) {
+        const s = Math.max(as, bs), e = Math.min(ae, be);
+        if (e > s + 1e-9) out.push([s, e]);
+      }
+    }
+    return out;
+  }
+
+  // 폭이 있는 띠(fixedAxis='y': y in [fixedLo,fixedHi]인 가로띠, 'x': x in [fixedLo,fixedHi]인 세로띠)를
+  // poly로 클리핑. 띠 내부 여러 지점을 샘플링해 교집합을 취하므로 오목한 경계도 근사적으로 처리.
+  function bandIntervals(poly, fixedAxis, fixedLo, fixedHi, alongMin, alongMax, samples) {
+    const n = Math.max(2, samples || 4);
+    let result = null;
+    for (let i = 0; i <= n; i++) {
+      const v = fixedLo + ((fixedHi - fixedLo) * i) / n;
+      const seg = crossIntervalsAt(poly, fixedAxis, v, alongMin, alongMax);
+      result = result === null ? seg : intersectIntervals(result, seg);
+      if (result.length === 0) return [];
+    }
+    return result || [];
+  }
+
   return {
     toRad, toDeg, add, sub, dist, project, unproject, rotatePoint,
     polygonArea, polygonCentroid, pointInPolygon, distPointToSegment,
     distPointToPolygon, segmentsIntersect, edges, rectCorners,
-    rectFullyInsidePolygon, rectOverlapsPolygon,
+    rectFullyInsidePolygon, rectOverlapsPolygon, bandIntervals,
   };
 })();

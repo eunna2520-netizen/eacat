@@ -9,6 +9,7 @@ const Standards = {
     compact: { label: "경형", width: 2.0, length: 3.6 },
     extended: { label: "확장형", width: 2.6, length: 5.2 },
     disabled: { label: "장애인전용", width: 3.3, length: 5.0 },
+    ev: { label: "전기차", width: 2.6, length: 5.2 },
     parallelGeneral: { label: "평행주차 일반형", width: 2.0, length: 6.0 },
   },
 

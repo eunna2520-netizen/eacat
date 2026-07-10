@@ -103,12 +103,13 @@
           </select>
         </label>
 
-        <label class="checkbox-row">
-          <input id="chkReserved" type="checkbox" /> 장애인전용 등 우선구역 확보 (간이 배치, 참고용)
-        </label>
-        <div id="reservedBox" class="hidden sub-fields">
-          <label>확보 대수 <input id="inReservedCount" type="number" min="0" value="2" /></label>
+        <p class="hint" style="margin-top:14px;">특수 구역 비율 (총 주차대수 기준 %, 간이 배치·참고용)</p>
+        <div class="sub-fields">
+          <label>장애인전용(%) <input id="inPctDisabled" type="number" min="0" max="100" step="0.5" value="0" /></label>
+          <label>전기차(%) <input id="inPctEv" type="number" min="0" max="100" step="0.5" value="0" /></label>
+          <label>확장형(%) <input id="inPctExtended" type="number" min="0" max="100" step="0.5" value="0" /></label>
         </div>
+        <p class="hint">각 %는 일반형만으로 계산한 기준 총 대수에 적용되며(올림), 출입구에서 가까운 대지 경계를 따라 별도 구역으로 우선 배치됩니다. 지자체별 의무 비율은 직접 확인해 입력하세요.</p>
 
         <p class="disclaimer" id="disclaimerText"></p>
       </section>

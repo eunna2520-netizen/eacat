@@ -38,17 +38,23 @@
     return localCorners.map((p) => Geo.unproject(p, origin));
   }
 
-  function renderFromLocal(localBest, localReserved) {
+  function renderFromLocal(localBest, localReservedByCategory) {
     const bestLatLng = {
       stalls: localBest.stalls.map(toLatLngPoly),
       aisles: localBest.aisles.map(toLatLngPoly),
     };
-    const reservedLatLng = localReserved
-      ? { stalls: localReserved.stalls.map(toLatLngPoly), aisles: localReserved.aisles.map(toLatLngPoly) }
-      : { stalls: [], aisles: [] };
-    lastLatLngResult = { best: bestLatLng, reserved: reservedLatLng };
+    const reservedByCategoryLatLng = {};
+    for (const key of Object.keys(localReservedByCategory || {})) {
+      const cat = localReservedByCategory[key];
+      reservedByCategoryLatLng[key] = {
+        key: cat.key, label: cat.label,
+        stalls: cat.stalls.map(toLatLngPoly),
+        aisles: cat.aisles.map(toLatLngPoly),
+      };
+    }
+    lastLatLngResult = { best: bestLatLng, reservedByCategory: reservedByCategoryLatLng };
     MapView.renderResult(lastLatLngResult);
-    return { bestLatLng, reservedLatLng };
+    return lastLatLngResult;
   }
 
   function angleLabel(cfg) {
@@ -56,15 +62,26 @@
     return `직각/사선 ${cfg.parkingAngle}도`;
   }
 
+  function reservedTotal(r) {
+    return Object.values(r.reservedByCategory).reduce((s, c) => s + c.stalls.length, 0);
+  }
+
   function renderSummary() {
     const r = lastLocalResult;
     if (!r) return;
     const chosen = selectedAltIndex === -1 ? r.best : r.alternatives[selectedAltIndex];
-    const total = chosen.count + r.reserved.stalls.length;
+    const resTotal = reservedTotal(r);
+    const total = chosen.count + resTotal;
     const eff = total > 0 ? (r.siteArea / total).toFixed(1) : "-";
 
+    const catLines = Object.values(r.reservedByCategory)
+      .filter((c) => c.needed > 0)
+      .map((c) => `  - ${c.label}: ${c.stalls.length}/${c.needed}대`)
+      .join("\n");
+
     $("resultSummary").textContent =
-      `총 주차대수: ${total}대 (일반 ${chosen.count}대 + 우선구역 ${r.reserved.stalls.length}대)\n` +
+      `총 주차대수: ${total}대 (일반 ${chosen.count}대 + 특수구역 ${resTotal}대)\n` +
+      (catLines ? catLines + "\n" : "") +
       `대지면적: ${r.siteArea.toFixed(1)} m²\n` +
       `대당 소요면적: ${eff} m²/대\n` +
       `배치: ${angleLabel(chosen)} · ${chosen.aisleMode === "double" ? "양측주차" : "편측주차"} · 회전각 ${chosen.gridAngle.toFixed(1)}도\n` +
@@ -78,7 +95,7 @@
       div.innerHTML = `<span>${label}</span><b>${count}대</b>`;
       div.onclick = () => {
         selectedAltIndex = idx;
-        renderFromLocal(idx === -1 ? r.best : r.alternatives[idx], r.reserved);
+        renderFromLocal(idx === -1 ? r.best : r.alternatives[idx], r.reservedByCategory);
         renderSummary();
       };
       box.appendChild(div);
@@ -89,7 +106,7 @@
       title.textContent = "대안 비교 (클릭하여 지도에 표시):";
       box.appendChild(title);
       r.alternatives.forEach((alt, idx) => {
-        makeItem(`${angleLabel(alt)} · ${alt.aisleMode === "double" ? "양측" : "편측"}`, alt.count + r.reserved.stalls.length, idx);
+        makeItem(`${angleLabel(alt)} · ${alt.aisleMode === "double" ? "양측" : "편측"}`, alt.count + resTotal, idx);
       });
     }
   }
@@ -120,8 +137,11 @@
           setback: parseFloat($("inSetback").value) || 0,
           angleStep: parseInt($("selPrecision").value, 10),
           entrance: entranceLocal,
-          reservedCount: $("chkReserved").checked ? parseInt($("inReservedCount").value, 10) || 0 : 0,
-          reservedDims: Standards.stallTypes.disabled,
+          quotas: {
+            disabled: parseFloat($("inPctDisabled").value) || 0,
+            ev: parseFloat($("inPctEv").value) || 0,
+            extended: parseFloat($("inPctExtended").value) || 0,
+          },
         };
 
         const result = Optimizer.optimize(localSite, localExclusions, opts);
@@ -132,7 +152,7 @@
         }
         lastLocalResult = result;
         selectedAltIndex = -1;
-        renderFromLocal(result.best, result.reserved);
+        renderFromLocal(result.best, result.reservedByCategory);
         renderSummary();
         $("resultsPanel").style.display = "block";
         $("calcStatus").textContent = "계산 완료.";
@@ -145,17 +165,24 @@
     }, 30);
   }
 
+  function allStallsAisles() {
+    let stalls = lastLatLngResult.best.stalls.slice();
+    let aisles = lastLatLngResult.best.aisles.slice();
+    for (const cat of Object.values(lastLatLngResult.reservedByCategory)) {
+      stalls = stalls.concat(cat.stalls);
+      aisles = aisles.concat(cat.aisles);
+    }
+    return { stalls, aisles };
+  }
   function exportDxf() {
     if (!lastLatLngResult) return;
-    const stalls = lastLatLngResult.best.stalls.concat(lastLatLngResult.reserved.stalls);
-    const aisles = lastLatLngResult.best.aisles.concat(lastLatLngResult.reserved.aisles);
+    const { stalls, aisles } = allStallsAisles();
     const dxf = Exporters.buildDxf(MapView.getSiteLatLngs(), stalls, aisles, origin);
     Exporters.downloadText("parking_layout.dxf", dxf, "application/dxf");
   }
   function exportGeoJson() {
     if (!lastLatLngResult) return;
-    const stalls = lastLatLngResult.best.stalls.concat(lastLatLngResult.reserved.stalls);
-    const aisles = lastLatLngResult.best.aisles.concat(lastLatLngResult.reserved.aisles);
+    const { stalls, aisles } = allStallsAisles();
     const gj = Exporters.buildGeoJson(MapView.getSiteLatLngs(), stalls, aisles, { generated: new Date().toISOString() });
     Exporters.downloadText("parking_layout.geojson", gj, "application/geo+json");
   }
@@ -166,9 +193,6 @@
     });
     $("selParkingAngle").addEventListener("change", (e) => {
       $("manualConfigBox").classList.toggle("hidden", e.target.value === "auto");
-    });
-    $("chkReserved").addEventListener("change", (e) => {
-      $("reservedBox").classList.toggle("hidden", !e.target.checked);
     });
 
     $("btnDrawSite").addEventListener("click", () => MapView.startDrawSite());

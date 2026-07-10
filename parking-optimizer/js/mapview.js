@@ -151,22 +151,30 @@ const MapView = (() => {
     resultLayerGroup.clearLayers();
   }
 
+  const CATEGORY_COLORS = {
+    disabled: { color: "#e67e22", fillColor: "#f5b041" },
+    ev: { color: "#27ae60", fillColor: "#58d68d" },
+    extended: { color: "#8e44ad", fillColor: "#bb8fce" },
+  };
+
   function renderResult(layoutResult) {
     clearResults();
     if (!layoutResult) return;
-    const { best, reserved } = layoutResult;
+    const { best, reservedByCategory } = layoutResult;
     for (const a of best.aisles) {
       L.polygon(a, { color: "#999", weight: 1, fillColor: "#ccc", fillOpacity: 0.35 }).addTo(resultLayerGroup);
     }
     for (const s of best.stalls) {
       L.polygon(s, { color: "#1976d2", weight: 1, fillColor: "#64b5f6", fillOpacity: 0.55 }).addTo(resultLayerGroup);
     }
-    if (reserved && reserved.stalls.length) {
-      for (const a of reserved.aisles) {
+    for (const key of Object.keys(reservedByCategory || {})) {
+      const cat = reservedByCategory[key];
+      const style = CATEGORY_COLORS[key] || { color: "#e67e22", fillColor: "#f5b041" };
+      for (const a of cat.aisles) {
         L.polygon(a, { color: "#999", weight: 1, fillColor: "#ccc", fillOpacity: 0.35 }).addTo(resultLayerGroup);
       }
-      for (const s of reserved.stalls) {
-        L.polygon(s, { color: "#e67e22", weight: 1, fillColor: "#f5b041", fillOpacity: 0.6 }).addTo(resultLayerGroup);
+      for (const s of cat.stalls) {
+        L.polygon(s, { color: style.color, weight: 1, fillColor: style.fillColor, fillOpacity: 0.6 }).addTo(resultLayerGroup);
       }
     }
   }
