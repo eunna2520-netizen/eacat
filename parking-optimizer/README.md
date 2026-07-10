@@ -10,8 +10,8 @@
 
 - 로컬에서 열기: `parking-optimizer/index.html` 을 브라우저로 더블클릭하여 열거나,
   `npx serve parking-optimizer` 처럼 아무 정적 서버로 구동해도 됩니다.
-- 인터넷 연결이 필요한 부분은 지도 배경(OpenStreetMap 타일)뿐이며, 그 외 라이브러리(Leaflet)는
-  `vendor/leaflet/`에 포함되어 있어 오프라인에서도 그리기·계산·내보내기 기능이 동작합니다.
+- 지도 라이브러리(Leaflet)와 지도 배경(OpenStreetMap 타일)은 CDN/외부 서버에서 불러오므로
+  인터넷 연결이 필요합니다.
 
 ## 사용 순서
 
@@ -56,7 +56,6 @@ parking-optimizer/
     exporters.js        DXF / GeoJSON 내보내기
     mapview.js           Leaflet 지도 드로잉 및 결과 렌더링
     app.js               UI 이벤트 바인딩
-  vendor/leaflet/       오프라인 사용을 위해 포함한 Leaflet 라이브러리
 ```
 
 이 도구는 리포지토리 루트의 AutoCAD 플러그인(`Commands.cs`)과는 독립적으로 동작하는 별도의
